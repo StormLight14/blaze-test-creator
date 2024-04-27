@@ -1,16 +1,22 @@
 use serde::{Deserialize, Serialize};
+use std::fs::OpenOptions;
+use std::io::Write;
 use eframe::egui;
 
 #[derive(Default)]
 struct ExamCreatorApp {
     exam_name: String,
     exam_questions: Vec<Question>,
+    error_message: Option<String>,
 }
 
 impl eframe::App for ExamCreatorApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
             egui::ScrollArea::both().auto_shrink(false).show(ui, |ui| {
+                if let Some(ref error_message) = self.error_message {
+                    ui.label(format!("ERROR: {}", error_message));
+                }
                 ui.horizontal(|ui| {
                     let exam_name_label = ui.label("Exam Name: ");
                     ui.text_edit_singleline(&mut self.exam_name).labelled_by(exam_name_label.id);
@@ -38,12 +44,41 @@ impl eframe::App for ExamCreatorApp {
                 if ui.button("Add Question").clicked() {
                     self.exam_questions.push(Question::default());
                 }
+                if ui.button("Save Exam").clicked() {
+                    let exam_file = OpenOptions::new().write(true).create(true).open("exam.json");
+                    let exam_json = serde_json::to_string::<Exam>(&Exam {
+                        name: self.exam_name.clone(),
+                        questions: self.exam_questions.clone()
+                    });
+                    match exam_file {
+                        Ok(mut file) => {
+                            match exam_json {
+                                Ok(exam_json) => {
+                                    match file.write_all(exam_json.as_bytes()) {
+                                        Ok(_) => (),
+                                        Err(err) => self.error_message = Some(err.to_string())
+                                    }
+                                },
+                                Err(err) => {
+                                    self.error_message = Some(err.to_string());
+                                }
+                            }
+                        },
+                        Err(err) => self.error_message = Some(err.to_string())
+                    }
+                }
             });
         });
     }
 }
 
-#[derive(Default)]
+#[derive(Serialize, Deserialize, Debug)]
+struct Exam {
+    name: String,
+    questions: Vec<Question>
+}
+
+#[derive(Serialize, Deserialize, Default, Debug, Clone)]
 struct Question {
     prompt: String,
     choices: Vec<String>,
