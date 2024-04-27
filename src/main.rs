@@ -29,7 +29,7 @@ impl eframe::App for ExamCreatorApp {
                     });
                     ui.horizontal(|ui| {
                         if ui.button("Add Choice").clicked() && question.choices.len() < 8 {
-                            question.choices.push(format!("Choice {}", question.choices.len() + 1));
+                            question.choices.push(format!("Choice {:?}", Choice::from(question.choices.len())));
                         }
                         for choice in question.choices.iter_mut() {
                             ui.add_sized([80.0, 20.0], egui::TextEdit::singleline(choice).clip_text(false));
@@ -40,12 +40,18 @@ impl eframe::App for ExamCreatorApp {
                             }
                         }
                     });
+                    ui.horizontal(|ui| {
+                        ui.label("Correct Answer: ");
+                        for (i, choice) in question.choices.iter().enumerate() {
+                            ui.selectable_value(&mut question.answer, Choice::from(i), format!("{:?}", Choice::from(i)));
+                        }
+                    });
                 }
                 if ui.button("Add Question").clicked() {
                     self.exam_questions.push(Question::default());
                 }
                 if ui.button("Save Exam").clicked() {
-                    let exam_file = OpenOptions::new().write(true).create(true).open("exam.json");
+                    let exam_file = OpenOptions::new().write(true).truncate(true).create(true).open("exam.json");
                     let exam_json = serde_json::to_string::<Exam>(&Exam {
                         name: self.exam_name.clone(),
                         questions: self.exam_questions.clone()
@@ -82,7 +88,41 @@ struct Exam {
 struct Question {
     prompt: String,
     choices: Vec<String>,
-    answer: String,
+    answer: Choice,
+}
+
+#[derive(Clone, Deserialize, Serialize, PartialEq, Debug)]
+enum Choice {
+    A,
+    B,
+    C,
+    D,
+    E,
+    F,
+    G,
+    H
+}
+
+impl Default for Choice {
+    fn default() -> Self {
+        Choice::A
+    }
+}
+
+impl From<usize> for Choice {
+    fn from(num: usize) -> Self {
+        match num {
+            0 => Choice::A,
+            1 => Choice::B,
+            2 => Choice::C,
+            3 => Choice::D,
+            4 => Choice::E,
+            5 => Choice::F,
+            6 => Choice::G,
+            7 => Choice::H,
+            _ => Choice::A,
+        }
+    }
 }
 
 fn main() -> Result<(), eframe::Error> {
